@@ -197,35 +197,63 @@ elif choice == "🏠 Feed Home":
             ]
         }
     
-    posts = list(posts_collection.find(query_filter).sort("created_at", -1))
     
+        posts = list(posts_collection.find(query_filter).sort("created_at", -1))
+
+if search_query:
+    st.caption(f"Found {len(posts)} results matching your search.")
+
+if not posts:
     if search_query:
-        st.caption(f"Found {len(posts)} results matching your search.")
-    
-    if not posts:
-        if search_query:
-            st.warning("No matches found.")
-        else:
-            st.info("No posts published yet.")
-        
-    for index, post in enumerate(posts):
-        st.markdown(f"## {post['title']}")
-        st.caption(f"By **{post['author']}** on {post['created_at'].strftime('%B %d, %Y at %I:%M %p')}")
-        
-        if post.get("image"):
-            try:
-                image_bytes = io.BytesIO(post["image"])
-                img = Image.open(image_bytes)
-                st.image(img, use_container_width=True)
-            except Exception:
-                st.error("⚠️ Failed to parse or render the cover image binary.")
-        
-        st.markdown(post["content"], unsafe_allow_html=True)
-        
-        with st.expander(f"💬 Comments ({len(post.get('comments', []))})"):
-            for comment in post.get("comments", []):
-                st.markdown(f"**{comment['user']}**: {comment['text']}")
-                st.caption(f"_{comment['timestamp'].strftime('%b %d, %I:%M %p')}_")
-                st.divider()
-with st.form(key=f"comment_block_{index}", clear_on_submit=True):# Automatically pre-fill commenter's name if they are logged indefault_user = st.session_state.username if st.session_state.logged_in else ""c_user = st.text_input("Your Name", value=default_user, key=f"user_id_{index}")c_text = st.text_area("Write a response...", key=f"text_id_{index}", height=70)c_submit = st.form_submit_button("Post Comment")if c_submit:if c_user and c_text:comment_payload = {"user": c_user,"text": c_text,"timestamp": datetime.now()}posts_collection.update_one({"_id": post["_id"]},{"$push": {"comments": comment_payload}})st.success("Comment updated successfully!")st.rerun()else:st.error("Ensure both fields are filled out to share your comment.")st.markdown("", unsafe_allow_html=True)
-                
+        st.warning("No matches found.")
+    else:
+        st.info("No posts published yet.")
+
+for index, post in enumerate(posts):
+    st.markdown(f"## {post['title']}")
+    st.caption(f"By **{post['author']}** on {post['created_at'].strftime('%B %d, %Y at %I:%M %p')}")
+
+    # Render Post Image
+    if post.get("image"):
+        try:
+            image_bytes = io.BytesIO(post["image"])
+            img = Image.open(image_bytes)
+            st.image(img, use_container_width=True)
+        except Exception:
+            st.error("⚠️ Failed to parse or render the cover image binary.")
+
+    # Render Post Content
+    st.markdown(post["content"], unsafe_allow_html=True)
+
+    # Render Existing Comments
+    with st.expander(f"💬 Comments ({len(post.get('comments', []))})"):
+        for comment in post.get("comments", []):
+            st.markdown(f"**{comment['user']}**: {comment['text']}")
+            st.caption(f"_{comment['timestamp'].strftime('%b %d, %I:%M %p')}_")
+            st.divider()
+            
+        # Add Comment Form (Now correctly placed inside the loop)
+        with st.form(key=f"comment_block_{index}", clear_on_submit=True):
+            # Automatically pre-fill commenter's name if they are logged in
+            default_user = st.session_state.username if st.session_state.logged_in else ""
+            c_user = st.text_input("Your Name", value=default_user, key=f"user_id_{index}")
+            c_text = st.text_area("Write a response...", key=f"text_id_{index}", height=70)
+            c_submit = st.form_submit_button("Post Comment")
+            
+            if c_submit:
+                if c_user and c_text:
+                    comment_payload = {
+                        "user": c_user,
+                        "text": c_text,
+                        "timestamp": datetime.now()
+                    }
+                    posts_collection.update_one(
+                        {"_id": post["_id"]},
+                        {"$push": {"comments": comment_payload}}
+                    )
+                    st.success("Comment updated successfully!")
+                    st.rerun()
+                else:
+                    st.error("Ensure both fields are filled out to share your comment.")
+                    
+    st.markdown("", unsafe_allow_html=True)
